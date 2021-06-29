@@ -12,8 +12,8 @@ For the reconstruction the following methods are implemented
 
 ## Organization
 
-''src``: contains all the wave propagation and misfit sub routines
-''examples``: contains the scripts showcasing the inversion algorithms
+- ''src'': contains all the wave propagation and misfit sub routines
+- ''examples'': contains the scripts showcasing the inversion algorithms
 
 TODO: 
 multi-frequency FWI
