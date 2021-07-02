@@ -1,11 +1,15 @@
-%% setup scaling parameters
+%% setting up the path to add the corresponding files
 clear
 addpath('../src')  
-%% butterfly and helmholtz parameters
 
-% number of Gaussian inclusions
+% this script performs a monochromatic inversion of a perturbation with 
+% multiscale features. 
 
-nn = 2;
+% The main objective of this code if to showcase the cycle-skipping issue
+% in which the optimization get stuck on a local minimum
+
+sigma = 0.01;
+
 freq = 10; % Hz
 omega = 2*pi*freq;
 
@@ -85,37 +89,36 @@ properties.order = 4;
 
 %%  We generate the data 
 
-% normpdf with amplitude scale = 1 fixed
-normal = @(x, mu, sigma)(normpdf(x, mu, sigma)*sqrt(2*pi)*sigma);
+% genaration of a random reference perturbation
+eta_rand = randn(nxi,nyi);  
+eta_rand(sqrt(Xi.^2 + Yi.^2)> 0.4)  = 0;
+% we define the gaussian smoother
+gaus = exp(-(Xi.^2 + Yi.^2)/sigma);
+% we smoothen the random field using a convolution
+smooth = conv2(gaus, eta_rand, 'same'); 
+smooth = smooth/max(max(abs(smooth)));
 
-% number of scatterers (uniform between [2,4])
+window = exp(-0.1./( 0.2025-(Xi.^2+Yi.^2))).*(sqrt(Xi.^2+Yi.^2)<0.45);
+window(isnan(window)) = 0;
 
-eta = (0.2*normpdf(Xi(:),0.5,5*h).*normpdf(Yi(:),0.5,5*h));
-centres = 0.4*rand(nn,2) -0.2 ;
+eta = smooth.*window;
 
-sigma_h = 2*h;
-
-for ii = 1:nn
-    if ii == 1
-        eta = delta_m*normal(Xi(:),centres(ii,1),sigma_h).*...
-                      normal(Yi(:),centres(ii,2),sigma_h);
-    else
-        eta = eta+delta_m*normal(Xi(:),centres(ii,1),sigma_h).*...
-                          normal(Yi(:),centres(ii,2),sigma_h);
-    end
-end
 % extend the model to the simulation domain
 m = 1 + eta;
-eta_ext=ExtendModel(eta,nxi,nyi,npml);
-mext=ExtendModel(m,nxi,nyi,npml);
+eta_ext = ExtendModel(eta,nxi,nyi,npml);
+mext = ExtendModel(m,nxi,nyi,npml);
 
 figure(1); clf();
+subplot(1,2,1);
 DisplayField(1./sqrt(m),xi,yi);
 title('Velocity');
+subplot(1,2,2);
+DisplayField(eta,xi,yi);
+title('Perturbation');
 
 % Helmholtz matrix without auxiliaries and with analytic 
 %  differentiation of the pml profile
-H1=HelmholtzMatrix(mext,nx,ny,npml,h,...
+H = HelmholtzMatrix(mext,nx,ny,npml,h,...
                    sigmaMax,order,omega,'compact_explicit');
 
 
@@ -135,7 +138,7 @@ S    = bsxfun(@times, -omega^2*eta_ext, U_in);
 
 % solving the equation
 tic;
-U = H1\S;
+U = H\S;
 t_f = toc;
 
 % printing the time of the solution
@@ -143,51 +146,66 @@ fprintf('Time elapsed of the computation = %.4e [s]\n',t_f );
 
 
 % sampling the wavefield in the interpolated data points
-scatter = zeros(Ntheta, Ntheta);
 theta_r = linspace(0, 2*pi-dtheta, Ntheta);
 r = [cos(theta_r).' sin(theta_r).'];
 
 points_query = 0.5*r;
 
-Projection_mat = zeros(Ntheta, nx, ny);
+project_mat = zeros(Ntheta, nx, ny);
 
 for ii = 1:nx
     for jj = 1:ny
         mat_dummy = zeros(nx,ny);
         mat_dummy(ii,jj) = 1;
-        Projection_mat(:,ii,jj) = interp2(x,y,...
-                                          reshape(mat_dummy, nx, ny),...
-                                          points_query(:,1),...
-                                          points_query(:,2));
+        project_mat(:,ii,jj) = interp2(x,y,...
+                                       reshape(mat_dummy, nx, ny),...
+                                       points_query(:,1),...
+                                       points_query(:,2));
     end
 end
 
 % we save the projection matrix into the properties structure
-
-Projection_mat = sparse(reshape(Projection_mat, Ntheta, nx*ny));
-properties.project_mat = Projection_mat;
+properties.project_mat = sparse(reshape(project_mat, Ntheta, nx*ny));
 
 % this is our "real data"
-scatter = Projection_mat*U;
+scatter = reshape(project_mat, Ntheta, nx*ny)*U;
 
-% adding noise
-% scatter = scatter.*(1 + randn(nxi,nyi));
+figure(2); clf();
+subplot(1,2,1);
+imagesc(real(reshape(scatter,nxi,nyi)));
+title('real part of the far field');
+subplot(1,2,2);
+imagesc(imag(reshape(scatter,nxi,nyi)));
+title('imaginary part of the far field');
+
+%%
+
 
 % define the misfit function (it provides both the misfit and the 
 % gradient
+J = @(x) misfit(scatter, x, properties);
 
-eta_0 = 0*eta;
-% regularization coefficient
-eps_reg = 0.001;
+% prepare the options for the optimization loop 
+options = optimoptions('fminunc','Algorithm','quasi-newton',...
+    'SpecifyObjectiveGradient',true,...
+    'MaxIterations', 100,...
+    'OptimalityTolerance', 1e-5, ...
+    'Display', 'iter-detailed');
 
-[ l2err, Df] = misfit(scatter, eta_0, properties);
-fprintf("l2err is %.4e \n", l2err)
-JJ  = @(x) J_starJ(eta_0, x, properties, eps_reg);
-tol = 1e-3;
-tic;
-delta_eta =  gmres(JJ,-Df,10,tol,10);
-toc
+% option to check the gradients using FD (it takes very loooong)
 
+% options = optimoptions('fminunc','Algorithm','quasi-newton',...
+%                         'SpecifyObjectiveGradient',true,...
+%                         'CheckGradients', true,...
+%                         'FiniteDifferenceType', 'central',...
+%                         'MaxIterations', 10000,...
+%                         'Display', 'iter-detailed');
+%
+
+% running the optimization routine
+[result,fval,exitflag,output] = fminunc(J,0*eta,options);
+
+% plotting the result
 figure(5);
 clf();
 subplot(1,3,1)
@@ -195,39 +213,10 @@ imagesc(reshape(eta, nxi, nyi))
 colorbar();
 title('Exact')
 subplot(1,3,2)
-imagesc(reshape(delta_eta, nxi, nyi))
+imagesc(reshape(result, nxi, nyi))
 colorbar();
 title('Reconstruction')
 subplot(1,3,3)
-imagesc(reshape(delta_eta-eta, nxi, nyi))
+imagesc(reshape(result-eta, nxi, nyi))
 colorbar();
 title('Error')
-
-% % 
-% for i = 1:4
-% 
-%     [ l2err, Df] = misfit(scatter, eta_0, properties);
-%     fprintf("l2err is %.4e \n", l2err)
-%     JJ  = @(x) J_starJ(eta_0, x, properties);
-%     tol = 1e-3;
-%     tic;
-%     delta_eta =  gmres(JJ,-Df,4,tol,10);
-%     toc
-%     eta_0 = eta_0 + delta_eta;
-% 
-% end 
-% 
-% figure(6);
-% clf();
-% subplot(1,3,1)
-% imagesc(reshape(eta, nxi, nyi))
-% colorbar();
-% title('Exact')
-% subplot(1,3,2)
-% imagesc(reshape(eta_0, nxi, nyi))
-% colorbar();
-% title('Reconstruction')
-% subplot(1,3,3)
-% imagesc(reshape(eta_0-eta, nxi, nyi))
-% colorbar();
-% title('Error')
