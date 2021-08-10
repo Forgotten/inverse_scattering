@@ -76,9 +76,8 @@ U_born = H\S_born;
 scatter = Projection_mat*U_born;
 
 % computing the rhs for the adjoint system
-
-%rhs_adj = -omega^2*Projection_mat'*scatter;
-rhs_adj = -omega^2*Projection_mat'*((Projection_mat*Projection_mat')\scatter);
+rhs_adj = -omega^2*Projection_mat'*scatter;
+%rhs_adj = -omega^2*Projection_mat'*((Projection_mat*Projection_mat')\scatter);
 
 % solving the adjoint system
 W_adj = (H')\rhs_adj;
