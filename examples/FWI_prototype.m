@@ -149,14 +149,9 @@ r = [cos(theta_r).' sin(theta_r).'];
 
 points_query = 0.5*r;
 
-%     % instead of interpolating at each iteration we compute the
-%     % interpolation matrix and then this is reduced to a matrix vector
-%     % multiplication
-%
-%     for ii= 1:Ntheta
-%         scatter(:, ii) = interp2(x,y,reshape(U(:,ii), nx, ny), ...
-%                                   points_query(:,1), points_query(:,2));
-%     end
+% instead of interpolating at each iteration we compute the
+% interpolation matrix and then this is reduced to a matrix vector
+% multiplication
 
 Projection_mat = zeros(Ntheta, nx, ny);
 
@@ -184,8 +179,8 @@ J = @(x) misfit(scatter, x, properties);
 % prepare the options for the optimization loop 
 options = optimoptions('fminunc','Algorithm','quasi-newton',...
     'SpecifyObjectiveGradient',true,...
-    'MaxIterations', 100,...
-    'OptimalityTolerance', 1e-5, ...
+    'MaxIterations', 400,...
+    'OptimalityTolerance', 1e-4, ...
     'Display', 'iter-detailed');
 
 % option to check the gradients using FD (it takes very loooong)
