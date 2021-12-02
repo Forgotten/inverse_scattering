@@ -1,9 +1,15 @@
 %% setup scaling parameters
 clear
 addpath('../src')  
-%% butterfly and helmholtz parameters
+%% helmholtz parameters
 
-% number of Gaussian inclusions
+% this script performs a monochromatic inversion of a perturbation with 
+% multiscale features. 
+
+% The main objective of this code if to showcase the cycle-skipping issue
+% in which the optimization get stuck on a local minimum
+
+sigma = 0.01;
 
 nn = 1;
 freq = 10; % Hz
