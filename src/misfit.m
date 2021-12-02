@@ -67,7 +67,7 @@ function [mis,  dmis] =  misfit(Data, eta, props)
         
         % computing the rhs for the adjoint system
         rhs_adj = omega^2*(Projection_mat.')*residual;
-        
+
         % solving the adjoint system
         W_adj = (H1')\rhs_adj;
         
