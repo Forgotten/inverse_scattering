@@ -1,4 +1,4 @@
-function [mis,  dmis] =  misfit_husimi_prototype_2(Data, eta, props)
+function [mis,  dmis] =  misfit_husimi(Data, eta, props)
     
     % unrolling the data contained in the structure 
     nxi = props.nxi;
@@ -6,7 +6,7 @@ function [mis,  dmis] =  misfit_husimi_prototype_2(Data, eta, props)
     
     nx = props.nx;
     ny = props.ny;
-    n = props.n;
+%     n = props.n;
     
     npml = props.npml;
     omega = props.omega;
