@@ -15,17 +15,19 @@ delta_noise = 0.0;         % level of relative noise
 %%% domain parameters
 a = 2;                        % domain size
 
-N_LS = a*freq*2^3;            % #grid points of Lippman-Schwinger
+N_LS = a*freq*2^4;            % #grid points of Lippman-Schwinger
 h_LS = a/N_LS;                % step size
 
-N_FD = a*freq*8;              % #grid points of finite difference
+N_FD = a*freq*16+1;              % #grid points of finite difference
 h_FD = a/(N_FD-1);             
 
+npml = max(20,round(2/(freq*h_FD)));          % #pml layers
 
 %%% optimization parameters
 order = 4;                    % order of FD scheme
-alpha_i = 0;                  % initial guess
+alpha_i = 1;                  % initial guess
 dTol = 1e-3;                  % first order optimality
+maxIter = 1;
 
 %%% medium parameters
 nn = 2;                              % number of bumps
@@ -53,6 +55,8 @@ fprintf('N_FD = %d\n', N_FD)
 fprintf('PPW_LS = %d\n', floor(lbd/h_LS))
 fprintf('PPW_FD = %d\n', floor(lbd/h_FD))
 
+fprintf('npml = %d\n', npml)
+fprintf('FD order = %d\n', order)
 
 %%% boundary parameters
 xb = 0.0; yb = 0.0; rb = 0.4;
@@ -130,80 +134,80 @@ figure(1); clf();
 DisplayField(1./sqrt(m.'),x_LS,y_LS); set(gca,'YDir','normal');
 title('Velocity');
 
-tic;
-
-
-%%% Lippmann-Schwinger operator
-LS = LippmannSchwinger_precompute(x_LS,y_LS,omega,eta_LS);
-
-
-%%% solving the equation
-U = zeros(N_LS*N_LS,Ntheta_s*Ntheta_i);
-for ii = 1:Ntheta_s*Ntheta_i
-    
-    %%% Generate source
-    S_LS = Sfunc(X_LS(:)-pos(ii,1) , Y_LS(:)-pos(ii,2) , dir(ii,1) , dir(ii,2) );
-    
-    
-    %%% Plot source
-%     S_plot = reshape(S_LS,N_LS,N_LS);
-%     figure(2); clf();
-%     DisplayField(S_plot.',x_LS,y_LS); set(gca,'YDir','normal');
-%     title('Source'); pause;
-
-    %%% Building the incident wave
-    u_inc = LS.apply_Green(S_LS);
-    
-    
-    %%% building the right hand-side
-    rhsDual = -omega^2*eta_LS.*u_inc;
-    
-    
-    %%% solving the Lippmann-Schwinger equation
-    sigma = LS\rhsDual(:);
-    
-    
-    %%% computing the wavefield
-    u_sca = LS.apply_Green(sigma);
-    u_tot = u_inc + u_sca;
-    
-    U(:,ii) = u_tot(:);
-    
-    
-    %%% Plot solution
-%     figure(3); clf();
-%     DisplayField(u_tot.',x_LS,y_LS); set(gca,'YDir','normal');
-%     title('Solution'); pause;
-
-end
-t_f = toc;
-
-% printing the time of the solution
-fprintf('Time elapsed of the computation = %.4e [s]\n',t_f );
-
-
-%%% Perform Husimi transform
-husimi_mat = phi( pos_r(:,1)-X_LS(:).' , pos_r(:,2)-Y_LS(:).' , dir_r(:,1) , dir_r(:,2) );
-
-
-%%% this is our "real data" %%%
-scatter = abs(h_LS^2*husimi_mat*U).^2;
-
-
-%% Save/load the data
-save(fullfile('..','data',...
-    ['scatter_LS_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
-        '_f',num2str(freq),'_N',num2str(N_LS),'_a',num2str(a),...
-        '_sigma',int2str(-log2(sigma0)),...
-        '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.mat']),...
-        'eta_LS','scatter');
-    
-% load(fullfile('..','data',...
+% tic;
+% 
+% 
+% %%% Lippmann-Schwinger operator
+% LS = LippmannSchwinger_precompute(x_LS,y_LS,omega,eta_LS);
+% 
+% 
+% %%% solving the equation
+% U = zeros(N_LS*N_LS,Ntheta_s*Ntheta_i);
+% for ii = 1:Ntheta_s*Ntheta_i
+%     
+%     %%% Generate source
+%     S_LS = Sfunc(X_LS(:)-pos(ii,1) , Y_LS(:)-pos(ii,2) , dir(ii,1) , dir(ii,2) );
+%     
+%     
+%     %%% Plot source
+% %     S_plot = reshape(S_LS,N_LS,N_LS);
+% %     figure(2); clf();
+% %     DisplayField(S_plot.',x_LS,y_LS); set(gca,'YDir','normal');
+% %     title('Source'); pause;
+% 
+%     %%% Building the incident wave
+%     u_inc = LS.apply_Green(S_LS);
+%     
+%     
+%     %%% building the right hand-side
+%     rhsDual = -omega^2*eta_LS.*u_inc;
+%     
+%     
+%     %%% solving the Lippmann-Schwinger equation
+%     sigma = LS\rhsDual(:);
+%     
+%     
+%     %%% computing the wavefield
+%     u_sca = LS.apply_Green(sigma);
+%     u_tot = u_inc + u_sca;
+%     
+%     U(:,ii) = u_tot(:);
+%     
+%     
+%     %%% Plot solution
+% %     figure(3); clf();
+% %     DisplayField(u_tot.',x_LS,y_LS); set(gca,'YDir','normal');
+% %     title('Solution'); pause;
+% 
+% end
+% t_f = toc;
+% 
+% % printing the time of the solution
+% fprintf('Time elapsed of the computation = %.4e [s]\n',t_f );
+% 
+% 
+% %%% Perform Husimi transform
+% husimi_mat = phi( pos_r(:,1)-X_LS(:).' , pos_r(:,2)-Y_LS(:).' , dir_r(:,1) , dir_r(:,2) );
+% 
+% 
+% %%% this is our "real data" %%%
+% scatter = abs(h_LS^2*husimi_mat*U).^2;
+% 
+% 
+% %% Save/load the data
+% save(fullfile('..','data',...
 %     ['scatter_LS_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
 %         '_f',num2str(freq),'_N',num2str(N_LS),'_a',num2str(a),...
 %         '_sigma',int2str(-log2(sigma0)),...
 %         '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.mat']),...
-%         'scatter');
+%         'eta_LS','scatter');
+    
+load(fullfile('..','data',...
+    ['scatter_LS_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
+        '_f',num2str(freq),'_N',num2str(N_LS),'_a',num2str(a),...
+        '_sigma',int2str(-log2(sigma0)),...
+        '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.mat']),...
+        'scatter');
 
 %%% add noise to the data
 noise = delta_noise*scatter.*(2*binornd(1,0.5,size(scatter))-1);
@@ -226,7 +230,6 @@ yi = h_FD*(0:nyi-1) - 0.5*a;
 [Xi,Yi] = meshgrid(xi,yi);
 
 % size of the simulation domain
-npml = 20;
 nx = nxi + 2*npml;
 ny = nyi + 2*npml;
 % n  = nx*ny;
@@ -291,7 +294,7 @@ title('Velocity');
 S = Sfunc(X(:)-pos(:,1).' , Y(:)-pos(:,2).' , dir(:,1).' , dir(:,2).' );
 
 S_plot = reshape(S(:,1),ny,nx); 
-S_plot = S_plot(npml+1:npml+nxi, npml+1:npml+nyi);
+S_plot = S_plot(npml+1:npml+nyi, npml+1:npml+nxi);
 figure(5); clf();
 DisplayField(S_plot,xi,yi); set(gca,'YDir','normal');
 title('Source');
@@ -301,6 +304,18 @@ properties.S = S;
 
 %%% Compute the Husimi matrix
 husimi_mat = phi( pos_r(:,1)-X(:).' , pos_r(:,2)-Y(:).' , dir_r(:,1) , dir_r(:,2) );
+
+husimi_mat = reshape(husimi_mat,Ntheta_r*Ntheta_o,ny,nx);
+husimi_mat(:,1:npml,:) = 0; husimi_mat(:,npml+nyi:end,:) = 0; 
+husimi_mat(:,:,1:npml) = 0; husimi_mat(:,:,npml+nxi:end) = 0; 
+
+husimi_mat = reshape(husimi_mat,Ntheta_r*Ntheta_o,ny*nx);
+
+filter_plot = reshape(husimi_mat(1,:),ny,nx); 
+filter_plot = filter_plot(npml+1:npml+nyi, npml+1:npml+nxi);
+figure(11); clf();
+DisplayField(filter_plot,xi,yi); set(gca,'YDir','normal');
+title('Filter');
 
 % we save the husimi matrix into the properties structure
 properties.husimi_mat = husimi_mat;
@@ -317,7 +332,7 @@ J = @(x) misfit_husimi(scatter, x, properties);
 % prepare the options for the optimization loop 
 options = optimoptions('fminunc','Algorithm','quasi-newton',...
     'SpecifyObjectiveGradient',true,...
-    'MaxIterations', 500,...
+    'MaxIterations', maxIter,...
     'OptimalityTolerance', dTol, ...
     'Display', 'iter-detailed');
 
@@ -338,15 +353,15 @@ options = optimoptions('fminunc','Algorithm','quasi-newton',...
 figure(6);
 clf();
 subplot(1,3,1)
-imagesc(xi,yi,reshape(eta, nxi, nyi)); pbaspect([1 1 1]); 
+imagesc(xi,yi,reshape(eta, nyi, nxi)); pbaspect([1 1 1]); 
 set(gca,'YDir','normal'); colorbar();
 title('Exact')
 subplot(1,3,2)
-imagesc(xi,yi,reshape(result, nxi, nyi)); pbaspect([1 1 1]);
+imagesc(xi,yi,reshape(result, nyi, nxi)); pbaspect([1 1 1]);
 set(gca,'YDir','normal'); colorbar();
 title('Reconstruction')
 subplot(1,3,3)
-imagesc(xi,yi,reshape(result-eta, nxi, nyi)); pbaspect([1 1 1]);
+imagesc(xi,yi,reshape(result-eta, nyi, nxi)); pbaspect([1 1 1]);
 set(gca,'YDir','normal'); colorbar();
 title('Error')
 
