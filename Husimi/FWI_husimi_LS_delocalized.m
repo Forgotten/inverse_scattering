@@ -33,15 +33,13 @@ dTol = 1e-5;                  % first order optimality
 maxIter = 500;
 
 %%% medium parameters
-nn = 1;                              % number of bumps
-MDName = [0,0];                      % shapes of supports (polygon or disk or star polygon)
-% radius of support
-rn = 0.2; %[0.1,0.2];
-% center of heterogeneity
-centres = [0,0]; %[-0.2,-0.2;0.1,0.1];       % 1st/2nd column: x/y coordinate
-% center of heterogeneity
-delta_m_nn = 0.5; %[0.5,0.3];              % amplitude
-delta_m = max(delta_m_nn); 
+
+sigma_s = 0.01;                            % smoother medium for larger sigma
+rn = 0.35;                        % radius of support of medium
+rni = 0.3;                        % radius of support of random field
+flat = 0.1;                       % flatness of the bump function; smaller the flater the bump function
+delta_m = 0.5;                    % maximal value of heterogeneity
+
 
 
 %%% Print some parameters
@@ -132,17 +130,54 @@ y_LS = -a/2:h_LS:a/2-h_LS;
 X_LS = repmat(x_LS',1,N_LS);
 Y_LS = repmat(y_LS,N_LS,1);
 
-% medium matrix
-eta_LS = zeros(N_LS,N_LS);
-for ii = 1:nn
-    eta_LS = eta_LS + delta_m_nn(ii)*...
-        polygon_bump(X_LS,Y_LS,centres(ii,1),centres(ii,2),rn(ii),MDName(ii));
-end
-m = 1 + eta_LS;
 
-figure(1); clf();
-DisplayField(1./sqrt(m.'),x_LS,y_LS); set(gca,'YDir','normal');
-title('Velocity');
+
+
+
+
+
+%%%  We generate the medium %%%
+
+% first we generate the medium on the finite difference grid
+
+% size of the model in interior domain
+nxi  = N_FD;
+nyi  = N_FD;
+
+xi = h_FD*(0:nxi-1) - 0.5*a;
+yi = h_FD*(0:nyi-1) - 0.5*a;
+
+[Xi,Yi] = meshgrid(xi,yi);
+
+% fixing the random number generator
+rng(0)
+
+% generate a random field
+eta_rand = randn(nyi,nxi);  
+eta_rand(sqrt(Xi.^2 + Yi.^2)> rni)  = 0;
+% we define the gaussian smoother
+gaus = exp(-(Xi.^2 + Yi.^2)/sigma_s);
+% we smoothen the random field using a convolution
+smooth = conv2(gaus, eta_rand, 'same'); 
+
+% confine the support of medium
+window = exp(-flat./( rn^2-(Xi.^2+Yi.^2)) ) .*(sqrt(Xi.^2+Yi.^2)<rn);
+window(isnan(window)) = 0;
+
+eta = smooth.*window;
+eta = delta_m*eta./max(abs(eta),[],'all');
+
+% interpolate the medium from the finite difference grid to the LS grid
+eta_LS = interp2(Xi,Yi,eta,X_LS,Y_LS);
+
+
+
+
+
+
+
+
+
 
 tic;
 
@@ -206,14 +241,16 @@ scatter = abs(h_LS^2*husimi_mat*U).^2;
 
 %% Save/load the data
 % save(fullfile('..','data',...
-%     ['scatter_LS_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
+%     ['scatter_LS_delocal'...
+%     '_An',num2str(delta_m),'_rn',num2str(rn),'_rni',num2str(rni),'_sigma',num2str(sigma_s),'_flat',num2str(flat),...
 %         '_k',num2str(omega),'_N',num2str(N_LS),'_a',num2str(a),...
 %         '_sigma',int2str(-log2(sigma0)),...
 %         '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.mat']),...
 %         'eta_LS','scatter','t_f');
 %     
 % load(fullfile('..','data',...
-%     ['scatter_LS_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
+%     ['scatter_LS_delocal',...
+%     '_An',num2str(delta_m),'_rn',num2str(rn),'_rni',num2str(rni),'_sigma',num2str(sigma_s),'_flat',num2str(flat),...
 %         '_k',num2str(omega),'_N',num2str(N_LS),'_a',num2str(a),...
 %         '_sigma',int2str(-log2(sigma0)),...
 %         '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.mat']),...
@@ -283,13 +320,29 @@ properties.order = order;
 
 
 
-%%%  We generate the true medium 
-eta = zeros(ni,1);
-for ii = 1:nn
-    eta = eta + delta_m_nn(ii)*...
-        polygon_bump(Xi(:),Yi(:),centres(ii,1),centres(ii,2),rn(ii),MDName(ii));
-end
-% extend the model to the simulation domain
+%%%  We generate the medium %%%
+
+% fixing the random number generator
+rng(0)
+
+% generate a random field
+eta_rand = randn(nyi,nxi);  
+eta_rand(sqrt(Xi.^2 + Yi.^2)> rni)  = 0;
+% we define the gaussian smoother
+gaus = exp(-(Xi.^2 + Yi.^2)/sigma_s);
+% we smoothen the random field using a convolution
+smooth = conv2(gaus, eta_rand, 'same'); 
+
+% confine the support of medium
+window = exp(-flat./( rn^2-(Xi.^2+Yi.^2)) ) .*(sqrt(Xi.^2+Yi.^2)<rn);
+window(isnan(window)) = 0;
+
+eta = smooth.*window;
+eta = delta_m*eta./max(abs(eta),[],'all');
+eta = eta(:);
+
+
+% Plot the medium
 m = 1 + eta;
 
 figure(4); clf();
@@ -386,29 +439,29 @@ title('Error')
 % set(gcf, 'Position',  [100, 100, 1500, 400])
 % 
 % % saveas(gcf,fullfile('..','plots',...
-% %     ['n_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
-% %     '_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
+% %     ['n_delocal_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
+% %     '_An',num2str(delta_m),'_rn',num2str(rn),'_rni',num2str(rni),'_sigma',num2str(sigma_s),'_flat',num2str(flat),...
 % %         '_f',num2str(freq),'_Nfd-ls',sprintf('-%i',[N_FD,N_LS]),'_a',num2str(a),...
 % %         '_sigma',int2str(-log2(sigma0)),...
 % %         '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.eps']),'epsc')
 % %     
 % % print(fullfile('..','plots',...
-% %     ['n_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
-% %     '_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
+% %     ['n_delocal_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
+% %     '_An',num2str(delta_m),'_rn',num2str(rn),'_rni',num2str(rni),'_sigma',num2str(sigma_s),'_flat',num2str(flat),...
 % %         '_f',num2str(freq),'_Nfd-ls',sprintf('-%i',[N_FD,N_LS]),'_a',num2str(a),...
 % %         '_sigma',int2str(-log2(sigma0)),...
 % %         '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.pdf']),'-dpdf');
 % 
 % savefig(fullfile('..','plots',...
-%     ['n_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
-%     '_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
+%     ['n_delocal_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
+%     '_An',num2str(delta_m),'_rn',num2str(rn),'_rni',num2str(rni),'_sigma',num2str(sigma_s),'_flat',num2str(flat),...
 %         '_k',num2str(omega),'_Nfd-ls',sprintf('-%i',[N_FD,N_LS]),'_a',num2str(a),...
 %         '_sigma',int2str(-log2(sigma0)),...
 %         '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.fig']));
 %               
 % save(fullfile('..','data',...
-%     ['n_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
-%     '_medium',sprintf('-%i',MDName),'_An',sprintf('-%.2f',delta_m_nn),'_rn',sprintf('-%.2f',rn),...
+%     ['n_delocal_LSorder',int2str(order),'_etai',num2str(alpha_i),'_dNoise',num2str(delta_noise),'_dTol',int2str(-log10(dTol)),...
+%     '_An',num2str(delta_m),'_rn',num2str(rn),'_rni',num2str(rni),'_sigma',num2str(sigma_s),'_flat',num2str(flat),...
 %         '_k',num2str(omega),'_Nfd-ls',sprintf('-%i',[N_FD,N_LS]),'_a',num2str(a),...
 %         '_sigma',int2str(-log2(sigma0)),...
 %         '_Nthetai-s-o-r',sprintf('-%i',[Ntheta_i,Ntheta_s,Ntheta_o,Ntheta_r]),'.mat']),...
