@@ -6,7 +6,7 @@ Self contained, Light-weight code for solving the inverse scattering problem wit
 
 This repo contains all the necessary code to simulate time-harmonic wave propagation using finite differences and Lippmann-Schwinger solver in Matlab. 
 
-In addition, we provide a simple $l^2$ misfit against a reference Husimi data, and its derivatives using adjoint-state methods. 
+In addition, we provide a simple l^2 misfit against a reference Husimi data, and its derivatives using adjoint-state methods. 
 
 For the reconstruction, the fminunc (quasi-newton) is as an optimization routine.
 
