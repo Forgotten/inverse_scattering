@@ -12,8 +12,8 @@ For the reconstruction, the fminunc (quasi-newton) is as an optimization routine
 
 ## Organization
 
-- ''src'': contains all the wave propagation and misfit sub routines
-- ''Husimi'': contains the scripts showcasing the inversion algorithms
+- `src`: contains all the wave propagation and misfit sub routines
+- `Husimi`: contains the scripts showcasing the inversion algorithms
 
 The run time could be between several minutes to several hours depending on the parameters, e.g., the wavenumber, the dataset size and the tolerance in iteration.
 
