@@ -21,9 +21,9 @@ The run time could be between several minutes to several hours depending on the 
 
 The instructions for running each case are as follows.
 
-- Reconstruction using Husimi data (Lippmann-Schwinger as reference and finite difference as inversion): Run FWI_husimi_LS.m, FWI_husimi_LS_delocalized.m and FWI_husimi_LS_SheppLogan.m for different media.
-- Reconstruction using Husimi data (finite difference as reference and inversion): Run FWI_husimi_FD.m, FWI_husimi_FD_delocalized.m and FWI_husimi_FD_SheppLogan.m for different media.
-- Reconstruction using plane wave and near field data (finite difference as reference and inversion): Run FWI_FD.m, FWI_FD_delocalized.m and FWI_FD_SheppLogan.m for different media.
+- Reconstruction using Husimi data (Lippmann-Schwinger as reference and finite difference as inversion): Run `FWI_husimi_LS.m`, `FWI_husimi_LS_delocalized.m` and `FWI_husimi_LS_SheppLogan.m` for different media.
+- Reconstruction using Husimi data (finite difference as reference and inversion): Run `FWI_husimi_FD.m`, `FWI_husimi_FD_delocalized.m` and `FWI_husimi_FD_SheppLogan.m` for different media.
+- Reconstruction using plane wave and near field data (finite difference as reference and inversion): Run `FWI_FD.m`, `FWI_FD_delocalized.m` and `FWI_FD_SheppLogan.m` for different media.
 
 ## Cite this work
 
